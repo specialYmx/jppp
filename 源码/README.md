@@ -1,11 +1,24 @@
-# OpenAI Pay Long Link
+# JPPP
 
-Standalone tool for generating a hosted payment long link from a ChatGPT access token.
+Local FastAPI tool for creating ChatGPT payment checkout links and checking the
+two outbound proxy stages used by the flow.
 
-## Run
+## Features
+
+- Hosted payment long-link generation.
+- PayPal / GoPay provider redirect extraction with hosted-link fallback.
+- Two-stage proxy routing:
+  - stage 1: checkout and approve.
+  - stage 2: Stripe, provider setup, and redirect resolution.
+- Stage IP check endpoint and UI button.
+- Local Japanese identity data generator backed by a static Japan Post ZIP data
+  export.
+- Optional Chrome extension helper files in `源码/`.
+
+## Run Locally
 
 ```powershell
-cd openai_pay_long_link
+cd C:\Users\ymx\Desktop\jppp
 py -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
@@ -18,10 +31,24 @@ Open:
 http://127.0.0.1:8787
 ```
 
+The repository also contains a mirrored copy under `源码/`. In this workspace it
+is commonly run as a second local service:
+
+```powershell
+cd C:\Users\ymx\Desktop\jppp\源码
+.\.venv\Scripts\Activate.ps1
+uvicorn app:app --host 127.0.0.1 --port 8788
+```
+
+Open:
+
+```text
+http://127.0.0.1:8788
+```
+
 ## Docker
 
 ```bash
-cd openai_pay_long_link
 docker compose up -d --build
 ```
 
@@ -37,15 +64,62 @@ Stop:
 docker compose down
 ```
 
-The server uses a built-in default outbound proxy when the page does not submit
-one. Override it at deploy time with `OPENAI_PAY_DEFAULT_PROXY`; set it to an
-empty value to use direct outbound network.
+## Proxy Setup
 
-For PP provider extraction, the server switches the post-checkout
-Stripe/Provider stage to a US proxy. By default it derives this from the
-built-in proxy by changing `region-JP` to `region-US`; override with
-`OPENAI_PAY_PROVIDER_PROXY`. GoPay switches the post-checkout provider stage
-to the built-in Indonesia proxy; override with `OPENAI_PAY_GOPAY_PROVIDER_PROXY`.
+The UI has two proxy fields.
+
+For the current local setup:
+
+```text
+阶段1代理: http://127.0.0.1:7890
+阶段2代理: http://127.0.0.1:10808
+```
+
+Expected routing:
+
+```text
+checkout/create = stage 1
+approve         = stage 1
+Stripe/provider = stage 2
+billing_details = payment-method specific address data
+```
+
+If only `checkoutProxy` is set and it contains a `region-JP` style proxy string,
+the server can derive the provider stage by replacing the region with `region-US`
+for PayPal. For two local tunnel apps, fill both fields explicitly.
+
+## Environment Variables
+
+```text
+OPENAI_PAY_DEFAULT_PROXY
+OPENAI_PAY_PROVIDER_PROXY
+OPENAI_PAY_GOPAY_PROVIDER_PROXY
+```
+
+`OPENAI_PAY_DEFAULT_PROXY` is the built-in fallback when no proxy is submitted.
+`OPENAI_PAY_PROVIDER_PROXY` overrides the PayPal Stripe/provider stage.
+`OPENAI_PAY_GOPAY_PROVIDER_PROXY` overrides the GoPay Stripe/provider stage.
+
+## Stage IP Check
+
+The `检测阶段 IP` button calls:
+
+```http
+GET /api/stage-ips
+```
+
+It verifies the effective stage 1 and stage 2 exit IPs and reports whether both
+stages are accidentally using the same IP.
+
+For the intended PayPal setup:
+
+```text
+stage1 = JP
+stage2 = US
+same_ip = false
+```
+
+The button only checks the proxy exits. It does not create checkout sessions.
 
 ## API
 
@@ -55,31 +129,92 @@ Content-Type: application/json
 
 {
   "accessToken": "eyJ...",
-  "proxy": "",
+  "link_type": "paypal",
+  "checkoutProxy": "http://127.0.0.1:7890",
+  "paymentProxy": "http://127.0.0.1:10808",
   "billing_country": "US",
+  "checkout_ui_mode": "hosted",
   "payment_locale": "en",
-  "stripe_publishable_key": ""
+  "stripe_publishable_key": "",
+  "device_id": "",
+  "user_agent": ""
 }
-```
-
-The server creates a ChatGPT checkout, calls:
-
-```text
-https://api.stripe.com/v1/payment_pages/{cs_id}/init
-```
-
-Then it reads `stripe_hosted_url` and changes:
-
-```text
-https://checkout.stripe.com -> https://pay.openai.com
 ```
 
 ## Link Types
 
-- `hosted`: normal payment long link, defaults to `US/USD`; country remains selectable.
-- `paypal`: PP redirect extraction, checkout locked to `US/USD`, uses a Japan billing address.
-- `gopay`: GoPay redirect extraction, checkout locked to `ID/IDR`, uses an Indonesia billing address. Accounts with active USD checkout/subscription state may be blocked by Stripe from creating an IDR checkout.
+- `hosted`: normal hosted checkout long link.
+- `paypal`: PayPal redirect extraction; checkout is locked to `US/USD`.
+- `gopay`: GoPay redirect extraction; checkout is locked to `ID/IDR`.
 
-For `paypal` and `gopay`, if Stripe provider redirect extraction fails but the
-hosted checkout URL exists, the API falls back to the hosted long link and
-returns `fallback: true` plus `provider_error`.
+For provider extraction failures, the API returns the hosted checkout URL when
+available and includes:
+
+```json
+{
+  "fallback": true,
+  "provider_error": "..."
+}
+```
+
+## Japanese Address Data
+
+Japanese address generation loads:
+
+```text
+public/jpn-addresses.json
+源码/public/jpn-addresses.json
+```
+
+The JSON was generated from Japan Post official ZIP data:
+
+```text
+https://www.post.japanpost.jp/service/search/zipcode/download/utf/zip/utf_ken_all.zip
+```
+
+The generated local dataset contains 1410 records across 47 prefectures. Each
+record keeps these fields from the same source row:
+
+```text
+zip
+prefectJa
+prefectEn
+streetJa
+streetEn
+```
+
+This avoids mixing a ZIP code from one prefecture with a street from another.
+
+## Git Ignore Policy
+
+The repository tracks source, static assets, Docker files, requirements, and the
+generated Japanese address JSON.
+
+The following local runtime artifacts are intentionally ignored:
+
+```text
+.venv/
+__pycache__/
+*.pyc
+*.log
+```
+
+This keeps virtual environments, Python bytecode, and uvicorn/server logs out of
+GitHub. The current push excludes files such as:
+
+```text
+jppp-8787.out.log
+jppp-8787.err.log
+uvicorn.out.log
+uvicorn.err.log
+源码/uvicorn-8788.out.log
+源码/uvicorn-8788.err.log
+```
+
+## Repository
+
+Remote:
+
+```text
+https://github.com/specialYmx/jppp.git
+```
