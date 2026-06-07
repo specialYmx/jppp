@@ -1,0 +1,1505 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>本地支付长链生成器</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f4f6f8;
+        --panel: #ffffff;
+        --ink: #161b22;
+        --muted: #667085;
+        --line: #d9dee7;
+        --soft: #eef3f7;
+        --accent: #087443;
+        --accent-dark: #075f38;
+        --blue: #155eef;
+        --danger: #b42318;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--ink);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          "Microsoft YaHei", sans-serif;
+      }
+
+      main {
+        width: min(980px, calc(100vw - 32px));
+        margin: 0 auto;
+        padding: 36px 0;
+      }
+
+      header {
+        display: flex;
+        justify-content: space-between;
+        gap: 20px;
+        align-items: end;
+        margin-bottom: 16px;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: 30px;
+        line-height: 1.15;
+        letter-spacing: 0;
+      }
+
+      p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(92px, 1fr));
+        gap: 8px;
+        min-width: 320px;
+      }
+
+      .stat {
+        padding: 10px 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel);
+      }
+
+      .stat strong {
+        display: block;
+        font-size: 18px;
+      }
+
+      .stat span {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .tool {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 16px;
+        padding: 18px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      textarea,
+      input,
+      select {
+        width: 100%;
+        min-height: 42px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: #fff;
+        color: var(--ink);
+        font: inherit;
+        padding: 10px 12px;
+        outline: none;
+      }
+
+      textarea {
+        min-height: 180px;
+        resize: vertical;
+      }
+
+      textarea:focus,
+      input:focus,
+      select:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(8, 116, 67, 0.14);
+      }
+
+      .token-meta {
+        min-height: 22px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      details {
+        border-top: 1px solid var(--line);
+        padding-top: 12px;
+      }
+
+      summary {
+        cursor: pointer;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .actions,
+      .result-actions {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      button,
+      a.button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 42px;
+        border: 0;
+        border-radius: 6px;
+        padding: 0 16px;
+        background: var(--accent);
+        color: white;
+        font: inherit;
+        font-weight: 800;
+        text-decoration: none;
+        cursor: pointer;
+      }
+
+      button:hover,
+      a.button:hover {
+        background: var(--accent-dark);
+      }
+
+      button.secondary,
+      a.button.secondary {
+        background: var(--soft);
+        color: var(--ink);
+      }
+
+      button.secondary:hover,
+      a.button.secondary:hover {
+        background: #e1e8ee;
+      }
+
+      a.button.blue {
+        background: var(--blue);
+      }
+
+      a.button.blue:hover {
+        background: #114ac0;
+      }
+
+      button:disabled,
+      a.button.disabled {
+        pointer-events: none;
+        cursor: wait;
+        opacity: 0.62;
+      }
+
+      .status {
+        min-height: 24px;
+        color: var(--muted);
+      }
+
+      .status.error {
+        color: var(--danger);
+      }
+
+      .result {
+        display: none;
+        margin-top: 2px;
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fbfcfd;
+      }
+
+      .result.show {
+        display: grid;
+        gap: 12px;
+      }
+
+      .row {
+        display: grid;
+        gap: 6px;
+      }
+
+      code {
+        display: block;
+        overflow-wrap: anywhere;
+        padding: 12px;
+        border-radius: 6px;
+        background: var(--soft);
+        color: #101828;
+        line-height: 1.45;
+      }
+
+      @media (max-width: 840px) {
+        main {
+          width: min(100vw - 24px, 980px);
+          padding: 24px 0;
+        }
+
+        header {
+          display: grid;
+          align-items: start;
+        }
+
+        h1 {
+          font-size: 25px;
+        }
+
+        .stats {
+          min-width: 0;
+          width: 100%;
+        }
+
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      /* Toast Notification Styling */
+      .toast-container {
+        position: fixed;
+        top: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 10000;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        pointer-events: none;
+      }
+
+      .toast {
+        background: rgba(16, 24, 40, 0.95);
+        backdrop-filter: blur(8px);
+        color: #ffffff;
+        padding: 10px 16px;
+        border-radius: 8px;
+        font-size: 13.5px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+        transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+        border-left: 4px solid var(--accent, #087443);
+      }
+
+      .toast.show {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+
+      .toast.toast-error {
+        border-left-color: var(--danger, #d92d20);
+      }
+
+      /* Copyable rows styling */
+      .row.copyable {
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+      .row.copyable label {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: pointer;
+        user-select: none;
+      }
+      .row.copyable label .copy-tip {
+        font-size: 11px;
+        color: var(--muted);
+        background: var(--soft);
+        padding: 2px 6px;
+        border-radius: 4px;
+        transition: all 0.2s ease;
+        font-weight: normal;
+      }
+      .row.copyable:hover code {
+        background: #eef2f6;
+        color: var(--accent);
+      }
+      .row.copyable:hover label .copy-tip {
+        color: #ffffff;
+        background: var(--accent, #087443);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <h1>本地支付长链生成器</h1>
+          <p>地区下拉，币种自动跟随，支付页语言可选。</p>
+        </div>
+        <div class="stats" aria-label="local stats">
+          <div class="stat">
+            <strong>本地</strong>
+            <span>Token 不保存</span>
+          </div>
+          <div class="stat">
+            <strong>长链</strong>
+            <span>pay.openai.com</span>
+          </div>
+          <div class="stat">
+            <strong>Plus</strong>
+            <span>hosted</span>
+          </div>
+        </div>
+      </header>
+
+      <section class="tool">
+        <div>
+          <label for="accessToken">Access Token 或 session JSON</label>
+          <textarea id="accessToken" autocomplete="off" spellcheck="false"></textarea>
+          <div id="tokenMeta" class="token-meta"></div>
+        </div>
+
+        <div class="grid">
+          <div>
+            <label for="linkType">链类型</label>
+            <select id="linkType">
+              <option value="hosted" selected>支付长链（默认美国）</option>
+              <option value="paypal">PP 链提取（日本地址）</option>
+              <option value="gopay">GoPay 链提取（印尼地址）</option>
+            </select>
+          </div>
+          <div>
+            <label for="checkoutMode">支付页模式</label>
+            <select id="checkoutMode">
+              <option value="hosted" selected>hosted: pay.openai.com 长链</option>
+            </select>
+          </div>
+          <div>
+            <label for="paymentLocale">支付页语言</label>
+            <select id="paymentLocale">
+              <option value="en" selected>英文</option>
+              <option value="zh-CN">简体中文</option>
+              <option value="zh-TW">繁体中文</option>
+              <option value="ja">日文</option>
+              <option value="ko">韩文</option>
+              <option value="de">德文</option>
+              <option value="fr">法文</option>
+              <option value="es">西班牙文</option>
+              <option value="id">印尼文</option>
+              <option value="pt-BR">葡萄牙文</option>
+            </select>
+          </div>
+          <div>
+            <label for="billingCountry">地区</label>
+            <select id="billingCountry"></select>
+          </div>
+          <div>
+            <label for="currency">币种</label>
+            <input id="currency" readonly />
+          </div>
+          <div>
+            <label for="checkoutProxy">阶段1 代理（提短链 / 创建 Checkout）</label>
+            <input id="checkoutProxy" placeholder="http://127.0.0.1:7890" />
+          </div>
+          <div>
+            <label for="paymentProxy">阶段2 代理（提 Token / Stripe / PayPal）</label>
+            <input id="paymentProxy" placeholder="http://127.0.0.1:10808" />
+          </div>
+        </div>
+
+        <details>
+          <summary>高级选项</summary>
+          <div class="grid">
+            <div>
+              <label for="stripeKey">Stripe Publishable Key</label>
+              <input id="stripeKey" placeholder="pk_live_..." />
+            </div>
+            <div>
+              <label for="deviceId">Device ID</label>
+              <input id="deviceId" placeholder="留空自动生成" />
+            </div>
+            <div>
+              <label for="userAgent">User Agent</label>
+              <input id="userAgent" placeholder="留空使用默认 Chrome UA" />
+            </div>
+          </div>
+        </details>
+
+        <div class="actions">
+          <button id="generate">生成支付长链</button>
+          <button id="stopAuto" type="button" disabled>停止自动</button>
+          <button id="saveProxy" class="secondary" type="button">保存代理</button>
+          <button id="clearProxy" class="secondary" type="button">清除保存</button>
+          <span id="status" class="status">代理未检测。</span>
+        </div>
+
+        <div id="loopLogContainer" class="result">
+          <div class="row">
+            <label>自动循环日志</label>
+            <div id="loopLog" style="max-height: 200px; overflow-y: auto; padding: 12px; border-radius: 6px; background: var(--soft); font-family: monospace; font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-all;"></div>
+          </div>
+        </div>
+
+        <div id="result" class="result">
+          <div class="result-actions">
+            <a id="openLink" class="button blue disabled" target="_blank" rel="noopener">跳转长链</a>
+            <button id="copy" class="secondary" type="button" disabled>复制长链</button>
+          </div>
+          <div class="row">
+            <label>长链</label>
+            <code id="longUrl"></code>
+          </div>
+          <div class="row">
+            <label>CS ID / 地区 / 币种</label>
+            <code id="summary"></code>
+          </div>
+          <div class="row">
+            <label>提取状态</label>
+            <code id="extractStatus"></code>
+          </div>
+          <div class="row">
+            <label>Provider Redirect URL</label>
+            <code id="providerUrl"></code>
+          </div>
+          <div class="row">
+            <label>Stripe Redirect URL</label>
+            <code id="stripeRedirectUrl"></code>
+          </div>
+          <div class="row">
+            <label>原始 Stripe URL</label>
+            <code id="stripeUrl"></code>
+          </div>
+        </div>
+      </section>
+
+      <section class="tool" style="margin-top: 24px;">
+        <div>
+          <h2 style="margin: 0 0 8px; font-size: 20px;">日本假账单 / 注册信息生成器</h2>
+          <p style="font-size: 13px; color: var(--muted); margin-bottom: 16px;">快速生成符合日本 PayPal 注册及支付要求的虚拟身份信息（包含汉字名、片假名、地址、卡号）。</p>
+        </div>
+
+        <div class="actions">
+          <button id="generateFakeInfo" type="button">生成日本假信息</button>
+          <button id="fetchIpAddress" class="secondary" type="button">检测阶段 IP</button>
+          <button id="copyFakeInfo" class="secondary" type="button" disabled>一键复制全部</button>
+        </div>
+        <div id="ipAddressStatus" style="font-size: 13px; color: var(--muted); min-height: 20px; margin-top: -4px;"></div>
+        <p style="font-size: 11px; color: var(--muted); margin: 6px 0 0 0;">💡 提示：按 IP 生成需向外部 API 检索地理位置。请勿连续频繁点击以防代理 IP 被限流封禁。</p>
+
+        <div id="fakeInfoResult" class="result">
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px;">
+            <div class="row copyable" onclick="copyFieldText($('fakeCardNum').textContent, '卡号')">
+              <label><span>卡号</span><span class="copy-tip">📋 点击复制</span></label>
+              <code id="fakeCardNum"></code>
+            </div>
+            <div class="row copyable" onclick="copyFieldText($('fakeCardMeta').textContent, '有效期/CSC')">
+              <label><span>有效期 / CSC</span><span class="copy-tip">📋 点击复制</span></label>
+              <code id="fakeCardMeta"></code>
+            </div>
+            <div class="row copyable" onclick="copyFieldText($('fakeFirstNameKanji').textContent, '名 Given Name')">
+              <label><span>名 · Given Name（汉字）</span><span class="copy-tip">📋 点击复制</span></label>
+              <code id="fakeFirstNameKanji"></code>
+            </div>
+            <div class="row copyable" onclick="copyFieldText($('fakeLastNameKanji').textContent, '姓 Family Name')">
+              <label><span>姓 · Family Name（汉字）</span><span class="copy-tip">📋 点击复制</span></label>
+              <code id="fakeLastNameKanji"></code>
+            </div>
+            <div class="row copyable" onclick="copyFieldText($('fakeFirstNameKana').textContent, '名 Given Name 片假名')">
+              <label><span>名 · Given Name（片假名）</span><span class="copy-tip">📋 点击复制</span></label>
+              <code id="fakeFirstNameKana"></code>
+            </div>
+            <div class="row copyable" onclick="copyFieldText($('fakeLastNameKana').textContent, '姓 Family Name 片假名')">
+              <label><span>姓 · Family Name（片假名）</span><span class="copy-tip">📋 点击复制</span></label>
+              <code id="fakeLastNameKana"></code>
+            </div>
+            <div class="row copyable" onclick="copyFieldText($('fakeZip').textContent, '邮编')">
+              <label><span>邮编</span><span class="copy-tip">📋 点击复制</span></label>
+              <code id="fakeZip"></code>
+            </div>
+            <div class="row copyable" onclick="copyFieldText($('fakeDob').textContent, '出生日期')">
+              <label><span>出生日期</span><span class="copy-tip">📋 点击复制</span></label>
+              <code id="fakeDob"></code>
+            </div>
+            <div class="row copyable" onclick="copyFieldText($('fakePrefectJa').textContent, '都道府县(日文)')">
+              <label><span>都道府县 - 日文</span><span class="copy-tip">📋 点击复制</span></label>
+              <code id="fakePrefectJa"></code>
+            </div>
+            <div class="row copyable" onclick="copyFieldText($('fakePrefectEn').textContent, '都道府县(英文)')">
+              <label><span>都道府县 - 英文</span><span class="copy-tip">📋 点击复制</span></label>
+              <code id="fakePrefectEn"></code>
+            </div>
+            <div class="row copyable" style="grid-column: span 2;" onclick="copyFieldText($('fakeStreetJa').textContent, '街道(日文)')">
+              <label><span>街道/门牌号 - 日文</span><span class="copy-tip">📋 点击复制</span></label>
+              <code id="fakeStreetJa"></code>
+            </div>
+            <div class="row copyable" style="grid-column: span 2;" onclick="copyFieldText($('fakeStreetEn').textContent, '街道(英文)')">
+              <label><span>街道/门牌号 - 英文/罗马音</span><span class="copy-tip">📋 点击复制</span></label>
+              <code id="fakeStreetEn"></code>
+            </div>
+
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const COUNTRIES = [
+        ["US", "美国 US", "USD"],
+        ["GB", "英国 GB", "GBP"],
+        ["CA", "加拿大 CA", "CAD"],
+        ["AU", "澳大利亚 AU", "AUD"],
+        ["JP", "日本 JP", "JPY"],
+        ["SG", "新加坡 SG", "SGD"],
+        ["HK", "中国香港 HK", "HKD"],
+        ["TW", "中国台湾 TW", "TWD"],
+        ["KR", "韩国 KR", "KRW"],
+        ["ID", "印度尼西亚 ID", "IDR"],
+        ["MY", "马来西亚 MY", "MYR"],
+        ["TH", "泰国 TH", "THB"],
+        ["VN", "越南 VN", "VND"],
+        ["PH", "菲律宾 PH", "PHP"],
+        ["IN", "印度 IN", "INR"],
+        ["DE", "德国 DE", "EUR"],
+        ["FR", "法国 FR", "EUR"],
+        ["IT", "意大利 IT", "EUR"],
+        ["ES", "西班牙 ES", "EUR"],
+        ["NL", "荷兰 NL", "EUR"],
+        ["IE", "爱尔兰 IE", "EUR"],
+        ["PT", "葡萄牙 PT", "EUR"],
+        ["BE", "比利时 BE", "EUR"],
+        ["FI", "芬兰 FI", "EUR"],
+        ["AT", "奥地利 AT", "EUR"],
+        ["CH", "瑞士 CH", "CHF"],
+        ["SE", "瑞典 SE", "SEK"],
+        ["NO", "挪威 NO", "NOK"],
+        ["DK", "丹麦 DK", "DKK"],
+        ["PL", "波兰 PL", "PLN"],
+        ["CZ", "捷克 CZ", "CZK"],
+        ["MX", "墨西哥 MX", "MXN"],
+        ["BR", "巴西 BR", "BRL"],
+        ["NZ", "新西兰 NZ", "NZD"],
+      ];
+
+      const $ = (id) => document.getElementById(id);
+      const LOCKED_COUNTRY_BY_TYPE = {
+        hosted: "US",
+        paypal: "US",
+        gopay: "ID",
+      };
+      const generateButton = $("generate");
+      const stopAutoButton = $("stopAuto");
+      const loopLogContainer = $("loopLogContainer");
+      const loopLog = $("loopLog");
+      const copyButton = $("copy");
+      const openLink = $("openLink");
+      const statusLine = $("status");
+      let currentLongUrl = "";
+      let isLooping = false;
+      let currentAbortController = null;
+      const JPN_FAMILY_NAMES = [
+        { kanji: "佐藤", kana: "サトウ" },
+        { kanji: "鈴木", kana: "スズキ" },
+        { kanji: "高橋", kana: "タカハシ" },
+        { kanji: "田中", kana: "タナカ" },
+        { kanji: "伊藤", kana: "イトウ" },
+        { kanji: "渡辺", kana: "ワタナベ" },
+        { kanji: "山本", kana: "ヤマモト" },
+        { kanji: "中村", kana: "ナカムラ" },
+        { kanji: "小林", kana: "コバヤシ" },
+        { kanji: "加藤", kana: "カトウ" },
+        { kanji: "吉田", kana: "ヨシダ" },
+        { kanji: "山田", kana: "ヤマダ" },
+        { kanji: "佐々木", kana: "ササキ" },
+        { kanji: "山口", kana: "ヤマグチ" },
+        { kanji: "松本", kana: "マツモト" },
+        { kanji: "井上", kana: "イノウエ" },
+        { kanji: "木村", kana: "キムラ" },
+        { kanji: "林", kana: "ハヤシ" },
+        { kanji: "斎藤", kana: "サイトウ" },
+        { kanji: "清水", kana: "シミズ" }
+      ];
+
+      const JPN_GIVEN_NAMES = [
+        { kanji: "健太", kana: "ケンタ" },
+        { kanji: "翔太", kana: "ショウタ" },
+        { kanji: "蓮", kana: "レン" },
+        { kanji: "拓海", kana: "タクミ" },
+        { kanji: "大翔", kana: "ハルト" },
+        { kanji: "陽太", kana: "ヒナタ" },
+        { kanji: "美咲", kana: "ミサキ" },
+        { kanji: "葵", kana: "アオイ" },
+        { kanji: "陽菜", kana: "ヒナ" },
+        { kanji: "凛", kana: "リン" },
+        { kanji: "結衣", kana: "ユイ" },
+        { kanji: "桜", kana: "サクラ" },
+        { kanji: "大輔", kana: "ダイスケ" },
+        { kanji: "和也", kana: "カズヤ" },
+        { kanji: "直樹", kana: "ナオキ" },
+        { kanji: "真央", kana: "マオ" },
+        { kanji: "優奈", kana: "ユウナ" },
+        { kanji: "颯太", kana: "ソウタ" },
+        { kanji: "愛", kana: "アイ" },
+        { kanji: "大輝", kana: "ダイキ" }
+      ];
+
+      const JPN_ADDRESSES = [
+        { zip: "150-0002", prefectJa: "東京都", prefectEn: "Tokyo", streetJa: "渋谷区渋谷1-2-3", streetEn: "1-2-3 Shibuya, Shibuya-ku" },
+        { zip: "150-0043", prefectJa: "東京都", prefectEn: "Tokyo", streetJa: "渋谷区道玄坂2-2-1", streetEn: "2-2-1 Dogenzaka, Shibuya-ku" },
+        { zip: "100-0005", prefectJa: "東京都", prefectEn: "Tokyo", streetJa: "千代田区丸の内1-9-1", streetEn: "1-9-1 Marunouchi, Chiyoda-ku" },
+        { zip: "542-0076", prefectJa: "大阪府", prefectEn: "Osaka", streetJa: "大阪市中央区難波3-5-1", streetEn: "3-5-1 Namba, Chuo-ku, Osaka-shi" },
+        { zip: "530-0001", prefectJa: "大阪府", prefectEn: "Osaka", streetJa: "大阪市北区梅田1-1-3", streetEn: "1-1-3 Umeda, Kita-ku, Osaka-shi" },
+        { zip: "460-0008", prefectJa: "愛知県", prefectEn: "Aichi", streetJa: "名古屋市中区栄3-4-5", streetEn: "3-4-5 Sakae, Naka-ku, Nagoya-shi" },
+        { zip: "812-0011", prefectJa: "福岡県", prefectEn: "Fukuoka", streetJa: "福岡市博多区博多駅前4-2-8", streetEn: "4-2-8 Hakataekimae, Hakata-ku, Fukuoka-shi" },
+        { zip: "060-0001", prefectJa: "北海道", prefectEn: "Hokkaido", streetJa: "札幌市中央区北一条西2-1", streetEn: "2-1 Kita 1-jo Nishi, Chuo-ku, Sapporo-shi" },
+        { zip: "220-0011", prefectJa: "神奈川県", prefectEn: "Kanagawa", streetJa: "横浜市西区高島2-19-12", streetEn: "2-19-12 Takashima, Nishi-ku, Yokohama-shi" },
+        { zip: "600-8216", prefectJa: "京都府", prefectEn: "Kyoto", streetJa: "京都市下京区東塩小路町901", streetEn: "901 Higashishiokojicho, Shimogyo-ku, Kyoto-shi" },
+        { zip: "980-0021", prefectJa: "宮城県", prefectEn: "Miyagi", streetJa: "仙台市青葉区中央1-1-1", streetEn: "1-1-1 Chuo, Aoba-ku, Sendai-shi" },
+        { zip: "730-0011", prefectJa: "広島県", prefectEn: "Hiroshima", streetJa: "広島市中区基町6-27", streetEn: "6-27 Motomachi, Naka-ku, Hiroshima-shi" },
+        { zip: "330-0853", prefectJa: "埼玉県", prefectEn: "Saitama", streetJa: "さいたま市大宮区錦町630", streetEn: "630 Nishikicho, Omiya-ku, Saitama-shi" },
+        { zip: "260-0031", prefectJa: "千葉県", prefectEn: "Chiba", streetJa: "千葉市中央区新千葉1-1-1", streetEn: "1-1-1 Shinchiba, Chuo-ku, Chiba-shi" },
+        { zip: "650-0017", prefectJa: "兵庫県", prefectEn: "Hyogo", streetJa: "神戸市中央区楠町7-5-1", streetEn: "7-5-1 Kusunokicho, Chuo-ku, Kobe-shi" },
+        { zip: "920-0858", prefectJa: "石川県", prefectEn: "Ishikawa", streetJa: "金沢市木ノ新保町1-1", streetEn: "1-1 Konoshinbomachi, Kanazawa-shi" },
+        { zip: "860-0047", prefectJa: "熊本県", prefectEn: "Kumamoto", streetJa: "熊本市中央区手取本町8-1", streetEn: "8-1 Tetorihoncho, Chuo-ku, Kumamoto-shi" },
+        { zip: "790-0001", prefectJa: "愛媛県", prefectEn: "Ehime", streetJa: "松山市一番町3-1-1", streetEn: "3-1-1 Ichibancho, Matsuyama-shi" },
+        { zip: "760-0011", prefectJa: "香川県", prefectEn: "Kagawa", streetJa: "高松市浜ノ町1-20", streetEn: "1-20 Hamanocho, Takamatsu-shi" },
+        { zip: "030-0801", prefectJa: "青森県", prefectEn: "Aomori", streetJa: "青森市新町1-1-1", streetEn: "1-1-1 Shinmachi, Aomori-shi" }
+      ];
+
+      const JPN_PREFECTURE_BY_PREFIX = {
+        "03": { prefectJa: "青森県", prefectEn: "Aomori" },
+        "06": { prefectJa: "北海道", prefectEn: "Hokkaido" },
+        "10": { prefectJa: "東京都", prefectEn: "Tokyo" },
+        "15": { prefectJa: "東京都", prefectEn: "Tokyo" },
+        "22": { prefectJa: "神奈川県", prefectEn: "Kanagawa" },
+        "26": { prefectJa: "千葉県", prefectEn: "Chiba" },
+        "33": { prefectJa: "埼玉県", prefectEn: "Saitama" },
+        "46": { prefectJa: "愛知県", prefectEn: "Aichi" },
+        "53": { prefectJa: "大阪府", prefectEn: "Osaka" },
+        "54": { prefectJa: "大阪府", prefectEn: "Osaka" },
+        "60": { prefectJa: "京都府", prefectEn: "Kyoto" },
+        "65": { prefectJa: "兵庫県", prefectEn: "Hyogo" },
+        "73": { prefectJa: "広島県", prefectEn: "Hiroshima" },
+        "76": { prefectJa: "香川県", prefectEn: "Kagawa" },
+        "79": { prefectJa: "愛媛県", prefectEn: "Ehime" },
+        "81": { prefectJa: "福岡県", prefectEn: "Fukuoka" },
+        "86": { prefectJa: "熊本県", prefectEn: "Kumamoto" },
+        "92": { prefectJa: "石川県", prefectEn: "Ishikawa" },
+        "98": { prefectJa: "宮城県", prefectEn: "Miyagi" }
+      };
+
+      let japaneseAddressDatasetPromise = null;
+
+      function loadJapaneseAddressDataset() {
+        if (japaneseAddressDatasetPromise) return japaneseAddressDatasetPromise;
+        japaneseAddressDatasetPromise = fetch("/public/jpn-addresses.json", { cache: "no-store" })
+          .then((resp) => {
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            return resp.json();
+          })
+          .then((data) => {
+            if (Array.isArray(data) && data.length) {
+              JPN_ADDRESSES.length = 0;
+              JPN_ADDRESSES.push(...data);
+            }
+            return JPN_ADDRESSES;
+          })
+          .catch(() => JPN_ADDRESSES);
+        return japaneseAddressDatasetPromise;
+      }
+
+      // ── 多国身份信息数据库 ─────────────────────────────────────────────
+      const COUNTRY_PROFILES = {
+        JP: {
+          label: "日本", kana: true,
+          family: JPN_FAMILY_NAMES, given: JPN_GIVEN_NAMES,
+          streetFn: () => { const a = JPN_ADDRESSES[Math.floor(Math.random()*JPN_ADDRESSES.length)]; return {streetEn:a.streetEn,streetJa:a.streetJa,prefectEn:a.prefectEn,prefectJa:a.prefectJa,zip:a.zip}; }
+        },
+        US: {
+          label: "美国",
+          family: ["Smith","Johnson","Williams","Brown","Jones","Garcia","Miller","Davis","Wilson","Moore","Taylor","Anderson","Thomas","Jackson","White","Harris","Martin","Thompson","Young","Walker"],
+          given:  ["James","John","Robert","Michael","William","David","Joseph","Charles","Thomas","Christopher","Mary","Patricia","Jennifer","Linda","Barbara","Elizabeth","Susan","Jessica","Sarah","Karen"],
+          streets: ["Main St","Oak Ave","Maple Dr","Washington Blvd","Park Rd","Cedar Ln","Lake View Dr","Elm St","Hill Rd","River Rd","Sunset Blvd","Forest Ave","Valley Rd","Pine St","Broadway"],
+        },
+        GB: {
+          label: "英国",
+          family: ["Smith","Jones","Williams","Taylor","Brown","Davies","Evans","Wilson","Thomas","Roberts","Johnson","Lewis","Walker","Robinson","Wood"],
+          given:  ["Oliver","Jack","Harry","George","Noah","Charlie","James","William","Amelia","Olivia","Isla","Emily","Ava","Isabella","Mia","Poppy","Ella"],
+          streets: ["High St","Church Rd","Victoria Rd","Green Lane","Manor Rd","Station Rd","Park Ave","King St","Queen St","Mill Lane","Market St","London Rd","New Rd","Hill St"],
+        },
+        AU: {
+          label: "澳大利亚",
+          family: ["Smith","Jones","Williams","Brown","Wilson","Taylor","Johnson","White","Martin","Anderson","Thompson","Harris","Robinson","Clark","Lewis"],
+          given:  ["Oliver","Jack","William","Noah","Lucas","Ethan","Liam","Thomas","Charlotte","Amelia","Mia","Ava","Isla","Grace","Chloe","Sophie"],
+          streets: ["Main St","High St","Pacific Hwy","George St","Victoria Ave","Elizabeth St","King St","Queen St","Bridge Rd","Albert Rd"],
+        },
+        CA: {
+          label: "加拿大",
+          family: ["Smith","Brown","Tremblay","Martin","Roy","Wilson","Gagnon","Johnson","Taylor","Jones"],
+          given:  ["Liam","Noah","Oliver","William","James","Emma","Olivia","Ava","Sophia","Isabella"],
+          streets: ["Main St","Yonge St","Jasper Ave","Portage Ave","Robson St","Ste-Catherine St","Rideau St","King St","Queen St","Bloor St"],
+        },
+        ID: {
+          label: "印度尼西亚",
+          family: ["Santoso","Wijaya","Rahma","Lestari","Pratama","Sari","Putra","Kusuma","Wibowo","Nugroho","Setiawan","Permana","Susanto","Hidayat","Purnomo"],
+          given:  ["Budi","Agus","Siti","Dewi","Rizky","Andi","Dian","Rudi","Fitri","Hendra","Wahyu","Indah","Bayu","Rina","Fajar"],
+          streets: ["Jl. Jend. Sudirman","Jl. MH Thamrin","Jl. Asia Afrika","Jl. Basuki Rahmat","Jl. Diponegoro","Jl. Gatot Subroto","Jl. HR Rasuna Said","Jl. Imam Bonjol","Jl. Pemuda","Jl. Raya Bogor"],
+          streetFn: (city) => `${["Jl. Jend. Sudirman","Jl. MH Thamrin","Jl. Pemuda","Jl. Diponegoro","Jl. Gatot Subroto"][Math.floor(Math.random()*5)]} No. ${Math.floor(Math.random()*200)+1}`,
+        },
+        KR: {
+          label: "韩国",
+          family: ["김","이","박","최","정","강","조","윤","장","임"],
+          familyRoman: ["Kim","Lee","Park","Choi","Jung","Kang","Cho","Yoon","Jang","Lim"],
+          given: ["민준","서준","예준","도윤","시우","주원","하준","지호","지후","준서","서연","서윤","지우","채원","수아"],
+          givenRoman: ["Minjun","Seojun","Yejun","Doyun","Siwoo","Juwon","Hajun","Jiho","Jihu","Junseok","Seoyeon","Seoyun","Jiwoo","Chaewon","Sua"],
+          streets: ["Gangnam-daero","Teheran-ro","Sejong-daero","Eulji-ro","Jongno","Mapo-daero","Banpo-daero","Olympic-ro","Dobong-ro","Seocho-daero"],
+        },
+        TW: {
+          label: "台湾",
+          family: ["陳","林","黃","張","李","王","吳","劉","蔡","楊","許","鄭","謝","洪","郭"],
+          given:  ["志明","淑芬","雅婷","建宏","怡君","志豪","美玲","家豪","詩涵","冠宇","佳蓉","文彥","雅雯","俊傑","心怡"],
+          streets: ["忠孝東路","信義路","仁愛路","復興南路","敦化南路","南京東路","民生東路","中山北路","羅斯福路","師大路"],
+          streetFn: (city) => `${["忠孝東路","信義路","仁愛路","復興南路","敦化南路"][Math.floor(Math.random()*5)]}${Math.floor(Math.random()*5)+1}段${Math.floor(Math.random()*200)+1}號`,
+        },
+        HK: {
+          label: "香港",
+          family: ["陳","李","張","黃","梁","劉","林","楊","何","鄭"],
+          given:  ["偉明","嘉儀","志豪","美玲","嘉慧","家豪","詩敏","俊傑","曉彤","健聰"],
+          streets: ["Nathan Road","Hennessy Road","Queen's Road","Des Voeux Road","Gloucester Road","Canton Road","Mody Road","Salisbury Road"],
+          streetFn: () => `${Math.floor(Math.random()*200)+1} ${["Nathan Road","Hennessy Road","Queen's Road","Des Voeux Road","Canton Road"][Math.floor(Math.random()*5)]}`,
+        },
+        SG: {
+          label: "新加坡",
+          family: ["Tan","Lim","Lee","Ng","Wong","Chan","Goh","Chua","Ong","Koh"],
+          given:  ["Wei Ming","Jun Jie","Hui Ling","Mei Ling","Jia Hui","Kai Xin","Zhi Wei","Xiao Ting","Yi Xuan","Rui En"],
+          streets: ["Orchard Road","Raffles Place","Shenton Way","Marina Boulevard","Beach Road","Bugis St","Clementi Ave","Tampines Ave","Jurong East Ave","Bedok North Rd"],
+        },
+        MY: {
+          label: "马来西亚",
+          family: ["Ahmad","Muhammad","Abdullah","Ibrahim","Ismail","Hassan","Ali","Omar","Yusof","Aziz","Tan","Lim","Wong","Lee","Ng"],
+          given:  ["Amir","Hafiz","Farid","Nurul","Siti","Aishah","Wei Liang","Jun Hao","Xin Yi","Mei Lin"],
+          streets: ["Jalan Bukit Bintang","Jalan Ampang","Jalan Sultan Ismail","Jalan Imbi","Jalan Chow Kit","Jalan Pudu","Jalan Tuanku Abdul Halim","Jalan Pahang"],
+        },
+        TH: {
+          label: "泰国",
+          family: ["Srisai","Charoenwong","Pornprasert","Kaewsai","Intararak","Phommasack","Ruangdej","Suksan","Tanawat","Wannasri"],
+          given:  ["Somchai","Somsak","Wanchai","Nattapong","Prayuth","Siriporn","Malee","Nittaya","Supaporn","Ratana"],
+          streets: ["Sukhumvit Road","Silom Road","Rama IV Road","Phetchaburi Road","Ratchadamri Road","Wireless Road","Ploenchit Road","Sathorn Road"],
+        },
+        VN: {
+          label: "越南",
+          family: ["Nguyen","Tran","Le","Pham","Hoang","Huynh","Phan","Vu","Dang","Bui"],
+          given:  ["Minh","Tuan","Hoa","Lan","Linh","Duc","Thanh","Thu","Hai","Bao"],
+          streets: ["Nguyen Hue","Le Loi","Dong Khoi","Hai Ba Trung","Pham Ngu Lao","Bui Vien","Le Duan","Tran Hung Dao","Dinh Tien Hoang","Vo Van Tan"],
+        },
+        PH: {
+          label: "菲律宾",
+          family: ["Santos","Reyes","Cruz","Bautista","Garcia","Gonzales","Torres","Flores","Ramos","Aquino"],
+          given:  ["Jose","Maria","Juan","Ana","Carlo","Kristine","Miguel","Maricel","Joven","Lorna"],
+          streets: ["EDSA","Roxas Boulevard","Ayala Avenue","Makati Avenue","Taft Avenue","España Boulevard","Quezon Avenue","Commonwealth Ave","Katipunan Ave","C5 Road"],
+        },
+        IN: {
+          label: "印度",
+          family: ["Sharma","Verma","Singh","Patel","Kumar","Joshi","Shah","Mehta","Gupta","Reddy","Nair","Pillai","Rao","Iyer","Mishra"],
+          given:  ["Rahul","Priya","Amit","Sneha","Vijay","Pooja","Ankit","Neha","Arjun","Kavya","Rohit","Divya","Suresh","Meena","Anil"],
+          streets: ["MG Road","Connaught Place","Linking Road","FC Road","Brigade Road","Anna Salai","Park Street","Bandra West","Koramangala","Indiranagar"],
+        },
+        DE: {
+          label: "德国",
+          family: ["Müller","Schmidt","Schneider","Fischer","Weber","Meyer","Wagner","Becker","Schulz","Hoffmann","Schäfer","Koch","Bauer","Richter","Klein"],
+          given:  ["Lukas","Felix","Jonas","Leon","Luca","Finn","Elias","Noah","Emma","Mia","Hannah","Lena","Anna","Lea","Laura"],
+          streets: ["Hauptstraße","Bahnhofstraße","Schulstraße","Gartenstraße","Bergstraße","Waldstraße","Kirchstraße","Ringstraße","Marktstraße","Schillerstraße"],
+          streetFn: (city) => `${["Hauptstraße","Bahnhofstraße","Gartenstraße","Bergstraße","Ringstraße"][Math.floor(Math.random()*5)]} ${Math.floor(Math.random()*200)+1}`,
+        },
+        FR: {
+          label: "法国",
+          family: ["Martin","Bernard","Thomas","Petit","Robert","Richard","Durand","Dubois","Moreau","Laurent","Simon","Michel","Lefebvre","Leroy","Roux"],
+          given:  ["Gabriel","Raphaël","Lucas","Leo","Louis","Noah","Emma","Jade","Louise","Alice","Inès","Chloé","Camille","Manon","Léa"],
+          streets: ["Rue de Rivoli","Avenue des Champs-Élysées","Boulevard Haussmann","Rue du Faubourg Saint-Antoine","Avenue de la République","Rue de la Paix","Boulevard Saint-Germain","Rue Montmartre"],
+          streetFn: () => `${Math.floor(Math.random()*200)+1} ${["Rue de la Paix","Boulevard Haussmann","Rue Montmartre","Avenue Marceau","Rue du Commerce"][Math.floor(Math.random()*5)]}`,
+        },
+        BR: {
+          label: "巴西",
+          family: ["Silva","Santos","Oliveira","Souza","Rodrigues","Ferreira","Alves","Pereira","Lima","Gomes","Costa","Ribeiro","Martins","Carvalho","Almeida"],
+          given:  ["João","Pedro","Lucas","Mateus","Gabriel","Rafael","Arthur","Guilherme","Maria","Ana","Juliana","Beatriz","Larissa","Fernanda","Amanda"],
+          streets: ["Av. Paulista","Rua Oscar Freire","Rua Augusta","Av. Brigadeiro Faria Lima","Rua das Flores","Av. Atlântica","Rua do Comércio","Rua XV de Novembro"],
+        },
+        MX: {
+          label: "墨西哥",
+          family: ["García","Martínez","López","González","Hernández","Pérez","Sánchez","Ramírez","Torres","Flores","Díaz","Reyes","Morales","Jiménez","Ruiz"],
+          given:  ["José","Juan","Carlos","Luis","Jorge","Miguel","Andrés","Roberto","María","Ana","Guadalupe","Laura","Patricia","Rosa","Elena"],
+          streets: ["Av. Insurgentes","Paseo de la Reforma","Av. Juárez","Calzada de Tlalpan","Av. Constituyentes","Circuito Interior","Av. Hidalgo","Calle Madero"],
+        },
+      };
+
+      // ── 通用街道生成（英文风格，用于无特定模板的国家）───────────────────
+      function randomStreetEn(city) {
+        const nums = Math.floor(Math.random() * 990) + 10;
+        const streets = ["Main St","Oak Ave","Maple Dr","Park Rd","Cedar Ln","Hill Rd","Lake View Dr","Elm St","River Rd","Sunrise Blvd","Forest Ave","Valley Rd","Pine St","Central Ave","Broadway"];
+        return `${nums} ${streets[Math.floor(Math.random()*streets.length)]}`;
+      }
+
+      function japanesePrefectureForZip(zip) {
+        const normalized = String(zip || "").trim();
+        const prefix = normalized.slice(0, 2);
+        return JPN_PREFECTURE_BY_PREFIX[prefix] || null;
+      }
+
+      function selectJapaneseAddress(geo = {}) {
+        const geoZip = String(geo.postcode || "").trim();
+        const geoPrefecture = japanesePrefectureForZip(geoZip);
+        const prefectureName = String(geo.state || "").trim().toLowerCase();
+
+        let candidates = JPN_ADDRESSES;
+        if (geoPrefecture) {
+          candidates = JPN_ADDRESSES.filter(
+            (item) => item.prefectJa === geoPrefecture.prefectJa || item.prefectEn === geoPrefecture.prefectEn,
+          );
+        } else if (prefectureName) {
+          const matched = JPN_ADDRESSES.filter(
+            (item) =>
+              String(item.prefectJa || "").toLowerCase() === prefectureName ||
+              String(item.prefectEn || "").toLowerCase() === prefectureName,
+          );
+          if (matched.length) candidates = matched;
+        }
+        if (!candidates.length) candidates = JPN_ADDRESSES;
+
+        return candidates[Math.floor(Math.random() * candidates.length)] || JPN_ADDRESSES[0];
+      }
+
+      // ── 核心：根据 country_code + 真实地理数据生成完整假身份 ─────────────
+      function generateInfoForCountry(countryCode, geo = {}) {
+        const cc = (countryCode || "JP").toUpperCase();
+        const profile = COUNTRY_PROFILES[cc] || COUNTRY_PROFILES["US"];
+        const rand = (arr) => arr[Math.floor(Math.random() * arr.length)];
+        const suffix = Math.floor(Math.random() * 9000) + 1000;
+
+        // 姓名
+        const lastName  = rand(profile.familyRoman || profile.family);
+        const firstName = rand(profile.givenRoman  || profile.given);
+
+        // 日文片假名（仅日本有，其他国家置空）
+        let lastNameKana = "", firstNameKana = "";
+        let lastNameKanji = lastName, firstNameKanji = firstName;
+        if (cc === "JP") {
+          const fam  = rand(JPN_FAMILY_NAMES);
+          const giv  = rand(JPN_GIVEN_NAMES);
+          lastNameKanji  = fam.kanji; lastNameKana  = fam.kana;
+          firstNameKanji = giv.kanji; firstNameKana = giv.kana;
+        } else if (cc === "KR") {
+          const idx = Math.floor(Math.random() * profile.family.length);
+          lastNameKanji  = profile.family[idx];
+          firstNameKanji = rand(profile.given);
+          lastNameKana   = profile.familyRoman[idx];
+          firstNameKana  = rand(profile.givenRoman);
+        } else if (["TW","HK"].includes(cc)) {
+          lastNameKanji  = rand(profile.family);
+          firstNameKanji = rand(profile.given);
+        }
+
+        // 地址（优先使用 IP 返回的真实数据）
+        let zip       = geo.postcode || "";
+        let prefectEn = geo.state    || "";
+        let prefectJa = geo.state    || "";
+        let streetEn  = "", streetJa = "";
+
+        if (cc === "JP") {
+          const addr = selectJapaneseAddress(geo);
+          zip = addr.zip;
+          prefectEn = addr.prefectEn;
+          prefectJa = addr.prefectJa;
+          streetEn = addr.streetEn;
+          streetJa = addr.streetJa;
+        } else if (profile.streetFn) {
+          streetEn = profile.streetFn(geo.city || "");
+          streetJa = streetEn;
+        } else if (profile.streets) {
+          streetEn = `${Math.floor(Math.random()*990)+10} ${rand(profile.streets)}`;
+          streetJa = streetEn;
+        } else {
+          streetEn = randomStreetEn(geo.city || "");
+          streetJa = streetEn;
+        }
+
+        // 卡片（根据国家生成对应卡种）
+        const card = generateRandomCard(cc);
+
+        // 生日
+        const year  = new Date().getFullYear() - 18 - Math.floor(Math.random() * 47);
+        const month = String(Math.floor(Math.random() * 12) + 1).padStart(2, "0");
+        const day   = String(Math.floor(Math.random() * 28) + 1).padStart(2, "0");
+        const dob   = `${year}-${month}-${day}`;
+
+        // 密码
+        const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        let pwd = "Pw@";
+        for (let i = 0; i < 9; i++) pwd += chars.charAt(Math.floor(Math.random() * chars.length));
+
+        return { card, dob, pwd, lastNameKanji, firstNameKanji, lastNameKana, firstNameKana, zip, prefectEn, prefectJa, streetEn, streetJa, countryLabel: profile.label };
+      }
+
+      // ── 填充 DOM 字段 ──────────────────────────────────────────────────
+      function applyFakeInfo(info) {
+        $("fakeCardNum").textContent     = info.card.number;
+        $("fakeCardMeta").textContent    = `${info.card.exp} / CSC: ${info.card.csc} (${info.card.brand})`;
+        $("fakeLastNameKanji").textContent  = info.lastNameKanji;
+        $("fakeFirstNameKanji").textContent = info.firstNameKanji;
+        $("fakeLastNameKana").textContent   = info.lastNameKana;
+        $("fakeFirstNameKana").textContent  = info.firstNameKana;
+        $("fakeZip").textContent         = info.zip;
+        $("fakePrefectJa").textContent   = info.prefectJa;
+        $("fakePrefectEn").textContent   = info.prefectEn;
+        $("fakeStreetJa").textContent    = info.streetJa;
+        $("fakeStreetEn").textContent    = info.streetEn;
+        $("fakeDob").textContent         = info.dob;
+        fakeInfoResult.classList.add("show");
+        copyFakeInfoButton.disabled = false;
+      }
+
+
+
+
+
+      const generateFakeInfoButton = $("generateFakeInfo");
+      const copyFakeInfoButton = $("copyFakeInfo");
+      const fakeInfoResult = $("fakeInfoResult");
+      function getTimestamp() {
+        const now = new Date();
+        const hrs = String(now.getHours()).padStart(2, "0");
+        const mins = String(now.getMinutes()).padStart(2, "0");
+        const secs = String(now.getSeconds()).padStart(2, "0");
+        return `${hrs}:${mins}:${secs}`;
+      }
+
+      function appendLog(text) {
+        const line = document.createElement("div");
+        line.textContent = text;
+        loopLog.appendChild(line);
+        loopLog.scrollTop = loopLog.scrollHeight;
+      }
+
+      const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+      function setStatus(text, isError = false) {
+        statusLine.textContent = text;
+        statusLine.classList.toggle("error", isError);
+      }
+
+      function base64UrlDecode(value) {
+        const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+        const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
+        return decodeURIComponent(
+          atob(padded)
+            .split("")
+            .map((char) => "%" + ("00" + char.charCodeAt(0).toString(16)).slice(-2))
+            .join(""),
+        );
+      }
+
+      function findToken(value) {
+        if (!value) return "";
+        if (typeof value === "string") return value.trim();
+        if (Array.isArray(value)) {
+          for (const item of value) {
+            const token = findToken(item);
+            if (token) return token;
+          }
+        }
+        if (typeof value === "object") {
+          for (const key of ["accessToken", "access_token", "token"]) {
+            if (typeof value[key] === "string" && value[key].trim()) return value[key].trim();
+          }
+          for (const item of Object.values(value)) {
+            const token = findToken(item);
+            if (token) return token;
+          }
+        }
+        return "";
+      }
+
+      function readAccessTokenInput() {
+        const raw = $("accessToken").value.trim();
+        if (!raw) return "";
+        if (raw.startsWith("{") || raw.startsWith("[")) {
+          try {
+            return findToken(JSON.parse(raw)) || raw;
+          } catch {
+            return raw;
+          }
+        }
+        return raw;
+      }
+
+      function updateTokenMeta() {
+        const token = readAccessTokenInput();
+        if (!token.includes(".")) {
+          $("tokenMeta").textContent = "";
+          return;
+        }
+        try {
+          const payload = JSON.parse(base64UrlDecode(token.split(".")[1] || ""));
+          const profile = payload["https://api.openai.com/profile"] || {};
+          const email = profile.email || payload.email || "";
+          $("tokenMeta").textContent = email ? `已识别 token，可能关联邮箱：${email}` : "已识别 token";
+        } catch {
+          $("tokenMeta").textContent = "";
+        }
+      }
+
+      function fillCountries() {
+        const select = $("billingCountry");
+        select.innerHTML = "";
+        for (const [code, label] of COUNTRIES) {
+          const option = document.createElement("option");
+          option.value = code;
+          option.textContent = label;
+          if (code === "US") option.selected = true;
+          select.appendChild(option);
+        }
+      }
+
+      function updateCurrency() {
+        const selected = COUNTRIES.find(([code]) => code === $("billingCountry").value);
+        $("currency").value = selected ? selected[2] : "USD";
+      }
+
+      function updateLockedCountry() {
+        const linkType = $("linkType").value;
+        const lockedCountry = LOCKED_COUNTRY_BY_TYPE[linkType] || "US";
+        if (linkType === "hosted") {
+          $("billingCountry").disabled = false;
+          if (!$("billingCountry").value) $("billingCountry").value = "US";
+        } else {
+          $("billingCountry").value = lockedCountry;
+          $("billingCountry").disabled = true;
+        }
+        updateCurrency();
+        generateButton.textContent =
+          linkType === "paypal" ? "提取 PP 链" : linkType === "gopay" ? "提取 GoPay 链" : "生成支付长链";
+
+        if (linkType === "paypal") {
+          stopAutoButton.style.display = "inline-flex";
+        } else {
+          stopAutoButton.style.display = "none";
+        }
+      }
+
+      function loadProxy() {
+        const legacy = localStorage.getItem("openai_pay_long_link_proxy") || "";
+        const savedCheckout = localStorage.getItem("openai_pay_checkout_proxy") || legacy || "http://127.0.0.1:7890";
+        const savedPayment = localStorage.getItem("openai_pay_payment_proxy") || "http://127.0.0.1:10808";
+        $("checkoutProxy").value = savedCheckout;
+        $("paymentProxy").value = savedPayment;
+      }
+
+      function setLinkEnabled(enabled) {
+        copyButton.disabled = !enabled;
+        openLink.classList.toggle("disabled", !enabled);
+        openLink.href = enabled ? currentLongUrl : "";
+      }
+
+      async function generate() {
+        const accessToken = readAccessTokenInput();
+        if (!accessToken) {
+          setStatus("Access Token 不能为空。", true);
+          return;
+        }
+
+        const linkType = $("linkType").value;
+        const isPaypal = linkType === "paypal";
+        const checkoutProxyValue = $("checkoutProxy").value.trim();
+        const paymentProxyValue = $("paymentProxy").value.trim();
+
+        if ((isPaypal || linkType === "gopay") && checkoutProxyValue && !paymentProxyValue && !checkoutProxyValue.includes("region-")) {
+          setStatus("Stage2 proxy is required for two local tunnels. Fill checkoutProxy and paymentProxy with different ports.", true);
+          showToast("Stage2 proxy is required", "error");
+          return;
+        }
+
+        if (isPaypal) {
+          isLooping = true;
+          stopAutoButton.disabled = false;
+          loopLogContainer.classList.add("show");
+          loopLog.innerHTML = "";
+        } else {
+          isLooping = false;
+          stopAutoButton.disabled = true;
+          loopLogContainer.classList.remove("show");
+        }
+
+        generateButton.disabled = true;
+        setLinkEnabled(false);
+        $("result").classList.remove("show");
+
+        let attempt = 0;
+
+        try {
+          while (true) {
+            if (isPaypal && !isLooping) {
+              break;
+            }
+
+            attempt++;
+            if (isPaypal) {
+              setStatus(`自动循环第 ${attempt} 次生成...`);
+              appendLog(`${getTimestamp()} 第 ${attempt} 次：生成中...`);
+            } else {
+              setStatus("正在生成...");
+            }
+
+            currentAbortController = new AbortController();
+
+            try {
+              const response = await fetch("/api/long-link", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                signal: currentAbortController.signal,
+                body: JSON.stringify({
+                  accessToken,
+                  link_type: linkType,
+                  checkoutProxy: checkoutProxyValue,
+                  paymentProxy: paymentProxyValue,
+                  billing_country: $("billingCountry").value,
+                  checkout_ui_mode: $("checkoutMode").value,
+                  payment_locale: $("paymentLocale").value,
+                  stripe_publishable_key: $("stripeKey").value.trim(),
+                  device_id: $("deviceId").value.trim(),
+                  user_agent: $("userAgent").value.trim(),
+                }),
+              });
+              const text = await response.text();
+              let data;
+              try {
+                data = JSON.parse(text);
+              } catch {
+                throw new Error(text || `HTTP ${response.status}`);
+              }
+              if (!response.ok) {
+                throw new Error(data.detail || "请求失败");
+              }
+
+              const longUrl = data.long_url || "";
+              
+              if (isPaypal) {
+                if (longUrl.includes("www.paypal.com") || longUrl.includes("paypal.com")) {
+                  appendLog(`${getTimestamp()} 第 ${attempt} 次：成功生成 PayPal 链接`);
+                  currentLongUrl = longUrl;
+                  $("longUrl").textContent = currentLongUrl;
+                  $("summary").textContent = `${data.cs_id || ""} / ${data.billing_country || ""} / ${
+                    data.currency || ""
+                  } / ${data.link_type || ""}`;
+                  $("extractStatus").textContent = "OK";
+                  $("providerUrl").textContent = data.provider_redirect_url || "";
+                  $("stripeRedirectUrl").textContent = data.stripe_redirect_url || "";
+                  $("stripeUrl").textContent = data.stripe_hosted_url || "";
+                  $("result").classList.add("show");
+                  setLinkEnabled(true);
+                  setStatus("生成完成。");
+                  break;
+                } else if (longUrl.includes("pay.openai.com")) {
+                  const errMsg = data.provider_error || "提取失败 (CS ID已激活或代理限制)";
+                  appendLog(`${getTimestamp()} 第 ${attempt} 次：已回退 hosted: ${errMsg}`);
+                } else {
+                  appendLog(`${getTimestamp()} 第 ${attempt} 次：生成非预期链接: ${longUrl}`);
+                }
+              } else {
+                currentLongUrl = longUrl;
+                $("longUrl").textContent = currentLongUrl;
+                $("summary").textContent = `${data.cs_id || ""} / ${data.billing_country || ""} / ${
+                  data.currency || ""
+                } / ${data.link_type || ""}`;
+                $("extractStatus").textContent = data.fallback
+                  ? `已回退 hosted：${data.provider_error || "provider redirect 提取失败"}`
+                  : "OK";
+                $("providerUrl").textContent = data.provider_redirect_url || "";
+                $("stripeRedirectUrl").textContent = data.stripe_redirect_url || "";
+                $("stripeUrl").textContent = data.stripe_hosted_url || "";
+                $("result").classList.add("show");
+                setLinkEnabled(Boolean(currentLongUrl));
+                setStatus("生成完成。");
+                break;
+              }
+            } catch (error) {
+              if (error.name === "AbortError") {
+                appendLog(`${getTimestamp()} 第 ${attempt} 次：已被用户手动停止`);
+                setStatus("已手动停止。");
+                break;
+              }
+
+              const errText = error instanceof Error ? error.message : String(error);
+              if (isPaypal) {
+                appendLog(`${getTimestamp()} 第 ${attempt} 次：请求发生错误: ${errText}`);
+              } else {
+                currentLongUrl = "";
+                setStatus(errText, true);
+                break;
+              }
+            }
+
+            if (isPaypal) {
+              if (!isLooping) break;
+              await sleep(1000);
+              if (!isLooping) break;
+            }
+          }
+        } finally {
+          generateButton.disabled = false;
+          stopAutoButton.disabled = true;
+          isLooping = false;
+          currentAbortController = null;
+        }
+      }
+
+      async function copyLink() {
+        if (!currentLongUrl) return;
+        await navigator.clipboard.writeText(currentLongUrl);
+        setStatus("已复制。");
+        showToast("已复制长链成功");
+      }
+
+      function stopAuto() {
+        isLooping = false;
+        if (currentAbortController) {
+          currentAbortController.abort();
+        }
+      }
+
+      // Fake Japan Profile Generator Functions
+      function generateLuhnCardNumber(prefix, length) {
+        let ccnumber = prefix;
+        while (ccnumber.length < (length - 1)) {
+          ccnumber += Math.floor(Math.random() * 10);
+        }
+        let sum = 0;
+        let doubleUp = true;
+        for (let i = ccnumber.length - 1; i >= 0; i--) {
+          let digit = parseInt(ccnumber.charAt(i), 10);
+          if (doubleUp) {
+            digit *= 2;
+            if (digit > 9) {
+              digit -= 9;
+            }
+          }
+          sum += digit;
+          doubleUp = !doubleUp;
+        }
+        let checksum = (10 - (sum % 10)) % 10;
+        return ccnumber + checksum;
+      }
+
+      function generateRandomCard(countryCode) {
+        const cc = (countryCode || "JP").toUpperCase();
+        const exp = (() => {
+          const m = String(Math.floor(Math.random() * 12) + 1).padStart(2, "0");
+          const y = String(new Date().getFullYear() + Math.floor(Math.random() * 6) + 1).slice(-2);
+          return `${m}/${y}`;
+        })();
+        const csc = String(Math.floor(Math.random() * 900) + 100);
+        if (cc === "JP") {
+          // 日本：只用 JCB
+          return { brand: "JCB", number: generateLuhnCardNumber("35" + (Math.floor(Math.random() * 62) + 28), 16), csc, exp };
+        }
+        // 其他国家：Visa 或 Mastercard 随机
+        if (Math.random() < 0.5) {
+          return { brand: "Visa", number: generateLuhnCardNumber("4", 16), csc, exp };
+        } else {
+          return { brand: "Mastercard", number: generateLuhnCardNumber("5" + (Math.floor(Math.random() * 5) + 1), 16), csc, exp };
+        }
+      }
+
+      async function generateFakeInfo() {
+        await loadJapaneseAddressDataset();
+        const family = JPN_FAMILY_NAMES[Math.floor(Math.random() * JPN_FAMILY_NAMES.length)];
+        const given = JPN_GIVEN_NAMES[Math.floor(Math.random() * JPN_GIVEN_NAMES.length)];
+        const address = JPN_ADDRESSES[Math.floor(Math.random() * JPN_ADDRESSES.length)];
+        const card = generateRandomCard("JP");
+        const dob = (() => {
+          const year = new Date().getFullYear() - 18 - Math.floor(Math.random() * 47);
+          const month = String(Math.floor(Math.random() * 12) + 1).padStart(2, "0");
+          const day = String(Math.floor(Math.random() * 28) + 1).padStart(2, "0");
+          return `${year}-${month}-${day}`;
+        })();
+
+        $("fakeCardNum").textContent = card.number;
+        $("fakeCardMeta").textContent = `${card.exp} / CSC: ${card.csc} (${card.brand})`;
+        $("fakeLastNameKanji").textContent = family.kanji;
+        $("fakeFirstNameKanji").textContent = given.kanji;
+        $("fakeLastNameKana").textContent = family.kana;
+        $("fakeFirstNameKana").textContent = given.kana;
+        $("fakeZip").textContent = address.zip;
+        $("fakePrefectJa").textContent = address.prefectJa;
+        $("fakePrefectEn").textContent = address.prefectEn;
+        $("fakeStreetJa").textContent = address.streetJa;
+        $("fakeStreetEn").textContent = address.streetEn;
+        $("fakeDob").textContent = dob;
+
+        fakeInfoResult.classList.add("show");
+        copyFakeInfoButton.disabled = false;
+        setStatus("生成日本假信息成功。");
+      }
+
+      // Toast Notification Function
+      function showToast(message, type = "success") {
+        let container = document.querySelector(".toast-container");
+        if (!container) {
+          container = document.createElement("div");
+          container.className = "toast-container";
+          document.body.appendChild(container);
+        }
+        const toast = document.createElement("div");
+        toast.className = `toast toast-${type}`;
+        toast.innerHTML = `
+          <span style="color: ${type === 'success' ? '#12b76a' : '#d92d20'}">${type === 'success' ? '✓' : '✗'}</span>
+          <span>${message}</span>
+        `;
+        container.appendChild(toast);
+        setTimeout(() => toast.classList.add("show"), 20);
+        setTimeout(() => {
+          toast.classList.remove("show");
+          setTimeout(() => toast.remove(), 300);
+        }, 2500);
+      }
+
+      async function copyFieldText(text, fieldLabel) {
+        if (!text) return;
+        try {
+          await navigator.clipboard.writeText(text);
+          setStatus(`已复制${fieldLabel}: ${text}`);
+          showToast(`已复制 ${fieldLabel}`);
+        } catch (err) {
+          setStatus("复制失败", true);
+          showToast("复制失败", "error");
+        }
+      }
+
+      async function copyAllFakeInfo() {
+        const text = `卡号: ${$("fakeCardNum").textContent}
+有效期/CSC: ${$("fakeCardMeta").textContent}
+姓(汉字): ${$("fakeLastNameKanji").textContent}
+名(汉字): ${$("fakeFirstNameKanji").textContent}
+姓(片假名): ${$("fakeLastNameKana").textContent}
+名(片假名): ${$("fakeFirstNameKana").textContent}
+邮编: ${$("fakeZip").textContent}
+都道府县(日文): ${$("fakePrefectJa").textContent}
+都道府县(英文): ${$("fakePrefectEn").textContent}
+街道地址(日文): ${$("fakeStreetJa").textContent}
+街道地址(英文): ${$("fakeStreetEn").textContent}
+生日: ${$("fakeDob").textContent}`;
+        try {
+          await navigator.clipboard.writeText(text);
+          setStatus("已复制全部假人数据。");
+          showToast("已复制全部假信息数据");
+        } catch (err) {
+          setStatus("复制失败", true);
+          showToast("复制失败", "error");
+        }
+      }
+
+      fillCountries();
+      updateLockedCountry();
+      updateCurrency();
+      loadJapaneseAddressDataset();
+      loadProxy();
+      $("accessToken").addEventListener("input", updateTokenMeta);
+      $("linkType").addEventListener("change", updateLockedCountry);
+      $("billingCountry").addEventListener("change", updateCurrency);
+      $("saveProxy").addEventListener("click", () => {
+        const checkoutProxy = $("checkoutProxy").value.trim();
+        const paymentProxy = $("paymentProxy").value.trim();
+        localStorage.setItem("openai_pay_checkout_proxy", checkoutProxy);
+        localStorage.setItem("openai_pay_payment_proxy", paymentProxy);
+        localStorage.removeItem("openai_pay_long_link_proxy");
+        setStatus("代理已保存在本机浏览器。");
+        showToast("代理已保存");
+      });
+      $("clearProxy").addEventListener("click", () => {
+        localStorage.removeItem("openai_pay_long_link_proxy");
+        localStorage.removeItem("openai_pay_checkout_proxy");
+        localStorage.removeItem("openai_pay_payment_proxy");
+        $("checkoutProxy").value = "";
+        $("paymentProxy").value = "";
+        setStatus("已清除保存的代理。");
+        showToast("已清除保存的代理");
+      });
+      const fetchIpAddressButton = $("fetchIpAddress");
+      const ipAddressStatus = $("ipAddressStatus");
+
+      async function fetchIpAddressAndFill() {
+        const checkoutProxy = $("checkoutProxy").value.trim();
+        const paymentProxy = $("paymentProxy").value.trim();
+        fetchIpAddressButton.disabled = true;
+        fetchIpAddressButton.textContent = "检测中...";
+        ipAddressStatus.textContent = "";
+        try {
+          const params = new URLSearchParams({
+            checkoutProxy,
+            paymentProxy,
+            linkType: $("linkType").value,
+          });
+          const resp = await fetch(`/api/stage-ips?${params.toString()}`);
+          const data = await resp.json();
+          if (!resp.ok) throw new Error(data.detail || "stage IP lookup failed");
+
+          const checkout = data.checkout || {};
+          const payment = data.payment || {};
+          const geo = checkout.ok ? checkout : payment.ok ? payment : null;
+          if (!geo) {
+            throw new Error(checkout.error || payment.error || "stage IP lookup failed");
+          }
+
+          const fmtStage = (label, item) => {
+            if (!item || !item.ok) return `${label}: failed`;
+            const stageCc = (item.country_code || "?").toUpperCase();
+            const place = [item.city, item.state].filter(Boolean).join(", ");
+            return `${label}: ${item.ip || "?"} ${stageCc}${place ? " / " + place : ""}`;
+          };
+          const ipInfo = `${fmtStage("stage1", checkout)} | ${fmtStage("stage2", payment)}${data.same_ip ? " | SAME IP" : ""}`;
+          ipAddressStatus.style.color = data.same_ip ? "var(--danger)" : "var(--accent)";
+          ipAddressStatus.textContent = ipInfo;
+
+          if (data.same_ip) {
+            showToast("Stage1 and stage2 are using the same IP", "error");
+          } else {
+            showToast("Stage IP check OK");
+          }
+        } catch (err) {
+          ipAddressStatus.textContent = `Lookup failed: ${err.message}`;
+          ipAddressStatus.style.color = "var(--danger)";
+          showToast("IP lookup failed", "error");
+        } finally {
+          let cooldown = 5;
+          fetchIpAddressButton.textContent = `冷却中 (${cooldown}s)`;
+          const timer = setInterval(() => {
+            cooldown--;
+            if (cooldown <= 0) {
+              clearInterval(timer);
+              fetchIpAddressButton.disabled = false;
+              fetchIpAddressButton.textContent = "检测阶段 IP";
+            } else {
+              fetchIpAddressButton.textContent = `冷却中 (${cooldown}s)`;
+            }
+          }, 1000);
+        }
+      }
+
+
+      generateButton.addEventListener("click", generate);
+      stopAutoButton.addEventListener("click", stopAuto);
+      copyButton.addEventListener("click", copyLink);
+      generateFakeInfoButton.addEventListener("click", generateFakeInfo);
+      fetchIpAddressButton.addEventListener("click", fetchIpAddressAndFill);
+      copyFakeInfoButton.addEventListener("click", copyAllFakeInfo);
+    </script>
+  </body>
+</html>
