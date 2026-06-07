@@ -647,13 +647,13 @@ def stripe_context(cs_id: str, init_payload: dict[str, Any], req: LongLinkReques
 def billing_for_link_type(link_type: str) -> dict[str, str]:
     normalized = normalize_link_type(link_type)
     if normalized == "paypal":
-        first_name, last_name = random.choice(JAPAN_BILLING_NAMES)
-        line1, city, state, postal_code = random.choice(JAPAN_BILLING_STREETS)
+        first_name, last_name = random.choice(US_BILLING_NAMES)
+        line1, city, state, postal_code = random.choice(US_BILLING_STREETS)
         suffix = random.randint(1000, 9999)
         return {
             "name": f"{first_name} {last_name}",
             "email": f"{first_name.lower()}.{last_name.lower()}{suffix}@example.com",
-            "country": "JP",
+            "country": "US",
             "line1": line1,
             "city": city,
             "state": state,
@@ -1030,6 +1030,13 @@ def stripe_payment_page_redirect_url(
             sub = payload.get("submission_attempt")
             if isinstance(sub, dict):
                 debug_summary(f"payment_pages poll#{attempt} submission_attempt", sub)
+                if sub.get("state") == "failed":
+                    error_code = ""
+                    error = sub.get("error")
+                    if isinstance(error, dict):
+                        error_code = str(error.get("code") or error.get("decline_code") or "").strip()
+                    detail = f"stripe submission failed: {error_code or 'unknown'}"
+                    raise HTTPException(status_code=502, detail=detail)
                 sub_url = extract_redirect_to_url(sub)
                 if sub_url:
                     print(f"DEBUG payment_pages poll#{attempt}: resolved submission_attempt redirect_url={sub_url}")
@@ -1098,6 +1105,12 @@ def redirect_url_after_confirm(
     if isinstance(submission, dict):
         state = submission.get("state") or ""
         debug_summary("redirect_url_after_confirm submission_attempt", submission)
+        if state == "failed":
+            error_code = ""
+            error = submission.get("error")
+            if isinstance(error, dict):
+                error_code = str(error.get("code") or error.get("decline_code") or "").strip()
+            raise HTTPException(status_code=502, detail=f"stripe submission failed: {error_code or 'unknown'}")
         if state == "requires_approval":
             approval_proxy = checkout_stage_proxy(req)
             apply_provider_proxy(chatgpt, approval_proxy)
