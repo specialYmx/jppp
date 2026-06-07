@@ -1248,21 +1248,25 @@ def generate_long_link(req: LongLinkRequest) -> LongLinkResponse:
     fallback = False
     provider_error = ""
     if link_type in {"paypal", "gopay"}:
-        try:
-            provider = create_provider_link(
-                chatgpt,
-                checkout,
-                init_payload,
-                stripe_hosted_url,
-                req,
-                provider_proxy=post_checkout_proxy,
-            )
-        except HTTPException as exc:
+        if not is_zero_amount(due_amount):
             fallback = True
-            provider_error = str(exc.detail)
-        except Exception as exc:
-            fallback = True
-            provider_error = str(exc)
+            provider_error = f"not zero eligible: due_amount={due_amount or 'unknown'}"
+        else:
+            try:
+                provider = create_provider_link(
+                    chatgpt,
+                    checkout,
+                    init_payload,
+                    stripe_hosted_url,
+                    req,
+                    provider_proxy=post_checkout_proxy,
+                )
+            except HTTPException as exc:
+                fallback = True
+                provider_error = str(exc.detail)
+            except Exception as exc:
+                fallback = True
+                provider_error = str(exc)
 
     return LongLinkResponse(
         ok=True,

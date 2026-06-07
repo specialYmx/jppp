@@ -84,6 +84,11 @@ Stripe/provider = stage 2
 billing_details = payment-method specific address data
 ```
 
+PayPal / GoPay provider extraction only runs when Stripe init reports
+`due_amount = 0`. If Stripe reports a non-zero amount such as `2000`, the app
+stops provider extraction, returns the hosted checkout fallback, and shows the
+non-zero amount in the `0元资格` field.
+
 If only `checkoutProxy` is set and it contains a `region-JP` style proxy string,
 the server can derive the provider stage by replacing the region with `region-US`
 for PayPal. For two local tunnel apps, fill both fields explicitly.

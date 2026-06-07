@@ -1219,6 +1219,23 @@
                   setStatus("生成完成。");
                   break;
                 } else if (longUrl.includes("pay.openai.com")) {
+                  if ((data.provider_error || "").includes("not zero eligible")) {
+                    appendLog(`${getTimestamp()} 第 ${attempt} 次：非0元 checkout，已停止: ${data.provider_error}`);
+                    currentLongUrl = longUrl;
+                    $("longUrl").textContent = currentLongUrl;
+                    $("summary").textContent = `${data.cs_id || ""} / ${data.billing_country || ""} / ${
+                      data.currency || ""
+                    } / ${data.link_type || ""}`;
+                    $("zeroEligibility").textContent = zeroEligibilityText(data);
+                    $("extractStatus").textContent = `非0元，已停止：${data.provider_error}`;
+                    $("providerUrl").textContent = data.provider_redirect_url || "";
+                    $("stripeRedirectUrl").textContent = data.stripe_redirect_url || "";
+                    $("stripeUrl").textContent = data.stripe_hosted_url || "";
+                    $("result").classList.add("show");
+                    setLinkEnabled(Boolean(currentLongUrl));
+                    setStatus("非0元 checkout，已停止自动循环。", true);
+                    break;
+                  }
                   const errMsg = data.provider_error || "提取失败 (CS ID已激活或代理限制)";
                   appendLog(`${getTimestamp()} 第 ${attempt} 次：已回退 hosted: ${errMsg}`);
                 } else {
