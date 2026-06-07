@@ -18,8 +18,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 try:
     from curl_cffi.requests import Session as CurlCffiSession  # type: ignore
+    from curl_cffi.requests import exceptions as curl_cffi_exceptions  # type: ignore
 except ImportError:  # pragma: no cover - optional dependency
     CurlCffiSession = None  # type: ignore
+    curl_cffi_exceptions = None  # type: ignore
 
 
 DEFAULT_STRIPE_PK = (
@@ -211,6 +213,13 @@ def clear_proxy_url(session: Any) -> None:
         session.proxies.clear()
     else:
         session.proxies = {}
+
+
+def proxy_error_detail(stage: str, exc: Exception) -> str:
+    message = str(exc)
+    if "Proxy CONNECT aborted" in message:
+        message = "Proxy CONNECT aborted; proxy cannot tunnel HTTPS or credentials/port are invalid"
+    return f"{stage} proxy failed: {message}"
 
 
 def set_proxy(session: Any, proxy: str) -> None:
@@ -429,12 +438,19 @@ def create_checkout(req: LongLinkRequest, chatgpt_session: Any | None = None) ->
         "x-openai-target-path": "/backend-api/payments/checkout",
         "x-openai-target-route": "/backend-api/payments/checkout",
     }
-    response = (chatgpt_session or build_chatgpt_session(req)).post(
-        "https://chatgpt.com/backend-api/payments/checkout",
-        json=body,
-        headers=headers,
-        timeout=DEFAULT_TIMEOUT,
-    )
+    try:
+        response = (chatgpt_session or build_chatgpt_session(req)).post(
+            "https://chatgpt.com/backend-api/payments/checkout",
+            json=body,
+            headers=headers,
+            timeout=DEFAULT_TIMEOUT,
+        )
+    except requests.exceptions.RequestException as exc:
+        raise HTTPException(status_code=502, detail=proxy_error_detail("checkout", exc)) from exc
+    except Exception as exc:
+        if curl_cffi_exceptions is not None and isinstance(exc, curl_cffi_exceptions.RequestException):
+            raise HTTPException(status_code=502, detail=proxy_error_detail("checkout", exc)) from exc
+        raise
     if response.status_code >= 400:
         body_text = response.text[:500] if response.text else ""
         if "cannot combine currencies" in body_text.lower():
