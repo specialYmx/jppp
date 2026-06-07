@@ -168,6 +168,8 @@ class LongLinkResponse(BaseModel):
     processor_entity: str
     billing_country: str
     currency: str
+    due_amount: str
+    zero_eligible: bool
     payment_locale: str
     link_type: str
     payment_method_type: str
@@ -586,9 +588,9 @@ def stripe_confirm_return_url(cs_id: str, checkout: dict[str, Any], stripe_hoste
     return hosted_url
 
 
-def expected_amount(init_payload: Any) -> str:
+def extract_due_amount(init_payload: Any) -> str:
     if not isinstance(init_payload, dict):
-        return "0"
+        return ""
     total_summary = init_payload.get("total_summary")
     if isinstance(total_summary, dict) and total_summary.get("due") is not None:
         return str(total_summary.get("due"))
@@ -608,7 +610,24 @@ def expected_amount(init_payload: Any) -> str:
                     pass
         if found:
             return str(total)
-    return "0"
+    return ""
+
+
+def expected_amount(init_payload: Any) -> str:
+    return extract_due_amount(init_payload) or "0"
+
+
+def is_zero_amount(amount: str) -> bool:
+    value = str(amount or "").strip()
+    if not value:
+        return False
+    try:
+        return int(value) == 0
+    except ValueError:
+        try:
+            return float(value) == 0
+        except ValueError:
+            return False
 
 
 def stripe_context(cs_id: str, init_payload: dict[str, Any], req: LongLinkRequest) -> dict[str, Any]:
@@ -1199,6 +1218,7 @@ def generate_long_link(req: LongLinkRequest) -> LongLinkResponse:
     if link_type in {"paypal", "gopay"}:
         post_checkout_proxy = payment_stage_proxy(req)
     init_payload = stripe_init(checkout["cs_id"], req, proxy_override=post_checkout_proxy)
+    due_amount = extract_due_amount(init_payload)
     stripe_hosted_url = str(init_payload.get("stripe_hosted_url") or "").strip()
     if not stripe_hosted_url:
         raise HTTPException(
@@ -1237,6 +1257,8 @@ def generate_long_link(req: LongLinkRequest) -> LongLinkResponse:
         processor_entity=checkout["processor_entity"],
         billing_country=checkout["billing_country"],
         currency=checkout["currency"],
+        due_amount=due_amount,
+        zero_eligible=is_zero_amount(due_amount),
         payment_locale=locale_parts(req.payment_locale)[0],
         link_type=link_type,
         payment_method_type=link_type if link_type in {"paypal", "gopay"} else "",

@@ -465,6 +465,10 @@
             <code id="summary"></code>
           </div>
           <div class="row">
+            <label>0元资格</label>
+            <code id="zeroEligibility"></code>
+          </div>
+          <div class="row">
             <label>提取状态</label>
             <code id="extractStatus"></code>
           </div>
@@ -1109,6 +1113,12 @@
         openLink.href = enabled ? currentLongUrl : "";
       }
 
+      function zeroEligibilityText(data) {
+        const amount = data && data.due_amount !== undefined && data.due_amount !== null ? String(data.due_amount) : "";
+        if (data && data.zero_eligible) return amount ? `有（应付 ${amount}）` : "有";
+        return amount ? `无（应付 ${amount}）` : "未知";
+      }
+
       async function generate() {
         const accessToken = readAccessTokenInput();
         if (!accessToken) {
@@ -1199,6 +1209,7 @@
                   $("summary").textContent = `${data.cs_id || ""} / ${data.billing_country || ""} / ${
                     data.currency || ""
                   } / ${data.link_type || ""}`;
+                  $("zeroEligibility").textContent = zeroEligibilityText(data);
                   $("extractStatus").textContent = "OK";
                   $("providerUrl").textContent = data.provider_redirect_url || "";
                   $("stripeRedirectUrl").textContent = data.stripe_redirect_url || "";
@@ -1219,6 +1230,7 @@
                 $("summary").textContent = `${data.cs_id || ""} / ${data.billing_country || ""} / ${
                   data.currency || ""
                 } / ${data.link_type || ""}`;
+                $("zeroEligibility").textContent = zeroEligibilityText(data);
                 $("extractStatus").textContent = data.fallback
                   ? `已回退 hosted：${data.provider_error || "provider redirect 提取失败"}`
                   : "OK";
